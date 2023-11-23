@@ -8,8 +8,8 @@ set -o pipefail  # use last non-zero exit code in a pipeline
 
 # check if you are run this scrit as root
 if [[ "${UID}" -ne 0 ]]; then
-    printf "You need root privileges to run this script!"
-	exit 1
+    printf '%s\n' "You need root privileges to run this script!"
+    exit 1
 fi
 
 # create shell vars
