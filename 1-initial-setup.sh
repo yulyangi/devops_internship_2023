@@ -1,12 +1,5 @@
 #!/usr/bin/env bash
 
-# to generate new ssh key run
-# ssh-keygen -b 2048 -t rsa -f /path/to/your/key
-# then you need to copy the key.pub to /home/your_user/.ssh/authorized_keys on your server
-# to connect run 'ssh your_user@ip_address -i /path/to/your/key.pub'
-# copy scripts to the server running
-# sudo scp -i ~/path/to/your/public/key 1-initial-setup.sh user@server_ip_address:/home/user/
-
 # error handling
 set -o xtrace    # trace the execution of the script
 set -o errexit   # exit on most errors
