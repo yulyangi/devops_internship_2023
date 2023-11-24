@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# error handling
+set -e 
+
 # func if valid domain
 function validate_domain() {
     local domain="${1}"
@@ -12,23 +15,25 @@ function validate_domain() {
 
 # func to create users to administrate web sites
 function create_user() {
-    read -p "Enter username : " username
-    read -s -p "Enter password : " password
-    egrep "^${username}" /etc/passwd >/dev/null
-    if [ $? -eq 0 ]; then
+    read -p -r "Enter username : " username
+    read -s -p -r"Enter password : " password
+    if grep -e "^${username}" /etc/passwd >/dev/null; then
         echo "${username} exists!"
         exit 1
     else
         pass=$(perl -e 'print crypt($ARGV[0], "password")' "${password}")
-        useradd --create-home --shell /bin/bash -p "${pass}" "${username}"
-        [ $? -eq 0 ] && echo "${username}" || echo "Failed to add a user!" && exit 2
+        if useradd --create-home --shell /bin/bash -p "${pass}" "${username}"; then
+            echo "${username}" 
+        else
+            echo "Failed to add a user!" && exit 2
+        fi
     fi 
 }
 
 # functions to enable or disable loaded service
 function enable_service() {
     local service="${1}"
-    if [ -e $(which "/lib/systemd/system/${service}.service") ]; then
+    if [ -e "$(which /lib/systemd/system/"${service}".service)" ]; then
         systemctl start "${service}"
         systemctl enable "${service}"
     fi
@@ -36,7 +41,7 @@ function enable_service() {
 
 function disable_service() {
     local service="${1}"
-    if [ -e $(which "/lib/systemd/system/${service}.service") ]; then
+    if [ -e "$(which /lib/systemd/system/"${service}".service)" ]; then
         systemctl stop "${service}"
         systemctl disable "${service}"
     fi
@@ -45,12 +50,12 @@ function disable_service() {
 # check if you are a root
 if [ "${UID}" -eq 0 ]; then
     # enter domain names and create users
-    read -p "Enter first domain : " first_domain
+    read -p -r "Enter first domain : " first_domain
     validate_domain "${first_domain}"
     echo "Create user for administrating ${first_domain}"
     username_first="$(create_user)"
     echo -e "\n"
-    read -p "Enter second domain : " second_domain
+    read -p -r "Enter second domain : " second_domain
     validate_domain "${second_domain}"
     echo "Create user for administrating ${second_domain}"
     username_second="$(create_user)"
@@ -58,7 +63,7 @@ fi
 
 # assign some shell variables
 private_ip=$(bash -c "ip route get 1 | awk 'NR==1{print \$7}'")
-public_ip=$(bash -c "curl ident.me") # we need to make this request before configuring firewall
+public_ip=$(bash -c "curl ident.me")
 hostname=$(bash -c "hostname")
 
 # update system, install nginx, logrotate, disable default firewall
@@ -91,7 +96,7 @@ openssl req -batch -x509 -nodes -days 365 -newkey rsa:2048 \
 # create config files for websites
 # to configure log rotation change /etc/logrotate.d/nginx file
 # now logrotation uses default configuration for all *.log files
-cat << EOF > /etc/nginx/sites-available/${first_domain}.conf
+cat << EOF > /etc/nginx/sites-available/"${first_domain}".conf
 server {
     listen 80;
     server_name ${first_domain};
@@ -112,7 +117,7 @@ server {
 }
 EOF
 
-cat << EOF > /etc/nginx/sites-available/${second_domain}.conf
+cat << EOF > /etc/nginx/sites-available/"${second_domain}".conf
 server {
     listen 80;
     server_name ${second_domain};
@@ -133,8 +138,8 @@ server {
 }
 EOF
 
-# create a simple website content for ${first_domain}
-cat << EOF > /var/www/html/${first_domain}/index.html
+# create a simple website content
+cat << EOF > /var/www/html/"${first_domain}"/index.html
 <html>
 <title>${first_domain}</title>
 <h1>Public IP address: ${public_ip}</h1>
@@ -170,9 +175,9 @@ printf "%s\n" "${public_ip} ${first_domain}" | sudo tee -a /etc/hosts > /dev/nul
 printf "%s\n" "${public_ip} ${second_domain}" | sudo tee -a /etc/hosts > /dev/null
 
 # # configure iptables
-# iptables -F # first remove all rules
-# iptables -A INPUT -p tcp -m multiport --dports 22,80,443 --state NEW,ESTABLISHED -j ACCEPT
-# iiptables -A OUTPUT -p tcp --m multiport -sport 22,80,443 --state ESTABLISHED -j ACCEPT
+iptables -F # first remove all rules
+iptables -A INPUT -p tcp -m multiport --dports 22,80,443 -m state --state NEW,ESTABLISHED -j ACCEPT
+iptables -A OUTPUT -p tcp -m multiport --sports 22,80,443 -m state --state ESTABLISHED -j ACCEPT
 # iptables --policy INPUT DROP
 # iptables --policy OUTPUT DROP 
 
