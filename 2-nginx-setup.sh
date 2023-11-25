@@ -15,8 +15,9 @@ function validate_domain() {
 
 # func to create users to administrate web sites
 function create_user() {
-    read -p -r "Enter username : " username
-    read -s -p -r"Enter password : " password
+    read -p "Enter username : " username
+    read -s -p "Enter password : " password
+    echo -e "\n"
     if grep -e "^${username}" /etc/passwd >/dev/null; then
         echo "${username} exists!"
         exit 1
@@ -50,12 +51,11 @@ function disable_service() {
 # check if you are a root
 if [ "${UID}" -eq 0 ]; then
     # enter domain names and create users
-    read -p -r "Enter first domain : " first_domain
+    read -p "Enter first domain : " first_domain
     validate_domain "${first_domain}"
     echo "Create user for administrating ${first_domain}"
     username_first="$(create_user)"
-    echo -e "\n"
-    read -p -r "Enter second domain : " second_domain
+    read -p "Enter second domain : " second_domain
     validate_domain "${second_domain}"
     echo "Create user for administrating ${second_domain}"
     username_second="$(create_user)"
@@ -180,8 +180,3 @@ iptables -A INPUT -p tcp -m multiport --dports 22,80,443 -m state --state NEW,ES
 iptables -A OUTPUT -p tcp -m multiport --sports 22,80,443 -m state --state ESTABLISHED -j ACCEPT
 # iptables --policy INPUT DROP
 # iptables --policy OUTPUT DROP 
-
-# # restrict permissions for the nginx script
-# chmod 744 "${script_path_nginx}"
-# chown "${user}":root "${script_path_nginx}"
-# mv "${script_path_nginx}" /home/${user}/
