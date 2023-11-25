@@ -174,9 +174,13 @@ systemctl reload nginx
 printf "%s\n" "${public_ip} ${first_domain}" | sudo tee -a /etc/hosts > /dev/null
 printf "%s\n" "${public_ip} ${second_domain}" | sudo tee -a /etc/hosts > /dev/null
 
-# # configure iptables
+## configure iptables
 iptables -F # first remove all rules
 iptables -A INPUT -p tcp -m multiport --dports 22,80,443 -m state --state NEW,ESTABLISHED -j ACCEPT
 iptables -A OUTPUT -p tcp -m multiport --sports 22,80,443 -m state --state ESTABLISHED -j ACCEPT
-# iptables --policy INPUT DROP
-# iptables --policy OUTPUT DROP 
+iptables --policy INPUT DROP
+iptables --policy OUTPUT DROP 
+
+## it is not nesessary, it is configured beause we want to make curl -k https://our-domain.com
+iptables -A INPUT -s "${first_domain},${second_domain}" -j ACCEPT
+iptables -A OUTPUT -d "${first_domain},${second_domain}" -j ACCEPT

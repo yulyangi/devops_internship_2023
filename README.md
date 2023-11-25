@@ -29,7 +29,7 @@ sudo ssh  -i ~/.ssh/your-public-key remote-user@ip-address-remote-server
 ```
 *on remote server execute **1-create-user.sh**  as user with sudo privileges*
 
-*will be created spetial restricted user to run nginx script*
+*will be created special restricted user to run nginx script*
 ```
 sudo bash /tmp/1-create-user.sh
 ```
