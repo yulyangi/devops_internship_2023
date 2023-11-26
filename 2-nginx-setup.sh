@@ -1,32 +1,31 @@
 #!/usr/bin/env bash
 
 # error handling
-set -e 
+set -ex
 
-# func if valid domain
+# func to check if valid domain
 function validate_domain() {
     local domain="${1}"
     local validate="^([a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]\.)+[a-zA-Z]{2,}$"
     if [[ ! "${domain}" =~ ${validate} ]]; then
-        echo "Not valid ${domain} name!"
-        exit 1
+        printf "%s\n" "Not valid ${domain} name!" && exit 1
     fi
 }
 
 # func to create users to administrate web sites
 function create_user() {
     read -p "Enter username : " username
-    read -s -p "Enter password : " password
-    echo -e "\n"
+    read -s -p "Enter password \
+(ensure the password respects the system's password policy or you can set it manualy \
+after executing the script 'sudo passwd ${username}') : " password
     if grep -e "^${username}" /etc/passwd >/dev/null; then
-        echo "${username} exists!"
-        exit 1
+        printf "%s\n" "${username} exists!" && exit 1
     else
         pass=$(perl -e 'print crypt($ARGV[0], "password")' "${password}")
         if useradd --create-home --shell /bin/bash -p "${pass}" "${username}"; then
-            echo "${username}" 
+            printf "%s\n" "${username}" 
         else
-            echo "Failed to add a user!" && exit 2
+            printf "%s\n" "Failed to add a user!" && exit 1
         fi
     fi 
 }
@@ -34,7 +33,7 @@ function create_user() {
 # functions to enable or disable loaded service
 function enable_service() {
     local service="${1}"
-    if [ -e "$(which /lib/systemd/system/"${service}".service)" ]; then
+    if [ "$(systemctl status "${service}" | awk 'FNR==2 {printf $2}')" == "loaded" ]; then
         systemctl start "${service}"
         systemctl enable "${service}"
     fi
@@ -42,7 +41,7 @@ function enable_service() {
 
 function disable_service() {
     local service="${1}"
-    if [ -e "$(which /lib/systemd/system/"${service}".service)" ]; then
+    if [ "$(systemctl status "${service}" | awk 'FNR==2 {printf $2}')" == "loaded" ]; then
         systemctl stop "${service}"
         systemctl disable "${service}"
     fi
@@ -53,50 +52,23 @@ if [ "${UID}" -eq 0 ]; then
     # enter domain names and create users
     read -p "Enter first domain : " first_domain
     validate_domain "${first_domain}"
-    echo "Create user for administrating ${first_domain}"
+    printf "%s\n" "Create user for administrating ${first_domain}"
     username_first="$(create_user)"
     read -p "Enter second domain : " second_domain
     validate_domain "${second_domain}"
-    echo "Create user for administrating ${second_domain}"
+    printf "%s\n" "Create user for administrating ${second_domain}"
     username_second="$(create_user)"
 fi
 
-# assign some shell variables
+# shell vars
+nginx_user_debian="www-data"
+nginx_user_fedora="nginx"
 private_ip=$(bash -c "ip route get 1 | awk 'NR==1{print \$7}'")
 public_ip=$(bash -c "curl ident.me")
 hostname=$(bash -c "hostname")
-
-# update system, install nginx, logrotate, disable default firewall
-if [[ -e "$(which apt-get)" ]]; then
-    # Ubuntu or Debian
-    apt-get update && apt-get install -y logrotate nginx openssl curl
-    enable_service nginx
-    disable_service ufw
-elif [[ -e "$(which yum)" ]]; then
-    # CentOS or RHEL
-    yum -y update && yum install -y epel-release logrotate nginx iptables-services
-    enable_service nginx
-    disable_service firewalld
-else
-    echo "Unsupported Linux distribution"
-    exit 1
-fi
-
-## configure nginx
-# create directories for the domains
-mkdir "/var/www/html/${first_domain}"
-mkdir "/var/www/html/${second_domain}"
-
-# create ssl certs
-# we will use them for both websites
-openssl req -batch -x509 -nodes -days 365 -newkey rsa:2048 \
-    -keyout /etc/ssl/private/nginx.key \
-    -out /etc/ssl/certs/nginx.crt
-
-# create config files for websites
-# to configure log rotation change /etc/logrotate.d/nginx file
-# now logrotation uses default configuration for all *.log files
-cat << EOF > /etc/nginx/sites-available/"${first_domain}".conf
+# assign config files to vars
+first_config=$(
+cat <<EOF
 server {
     listen 80;
     server_name ${first_domain};
@@ -116,8 +88,9 @@ server {
     }
 }
 EOF
-
-cat << EOF > /etc/nginx/sites-available/"${second_domain}".conf
+)
+second_config=$(
+cat <<EOF
 server {
     listen 80;
     server_name ${second_domain};
@@ -137,6 +110,34 @@ server {
     }
 }
 EOF
+)
+
+# update system, install nginx, logrotate, disable default firewall
+if [[ "$(awk -F"=" '/^ID_LIKE=/ {printf $2}' /etc/os-release)" == \"debian\" ]]; then
+    # Ubuntu or Debian
+    apt-get update && apt-get install -y nginx logrotate openssl curl
+    enable_service nginx
+    disable_service ufw
+elif [[ "$(awk -F"=" '/^ID_LIKE=/ {printf $2}' /etc/os-release)" == \"fedora\" ]]; then
+    # CentOS or RHEL
+    yum -y update && yum install -y nginx logrotate openssl curl iptables-services
+    enable_service nginx
+    disable_service firewalld
+else
+    printf "%s\n" "Unsupported Linux distribution" && exit 1
+fi
+
+## configure nginx
+# create directories for the domains
+mkdir -p "/var/www/html/${first_domain}"
+mkdir -p "/var/www/html/${second_domain}"
+
+# create ssl certs
+# we will use them for both websites
+mkdir -p /etc/ssl/private
+openssl req -batch -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout /etc/ssl/private/nginx.key \
+    -out /etc/ssl/certs/nginx.crt
 
 # create a simple website content
 cat << EOF > /var/www/html/"${first_domain}"/index.html
@@ -148,13 +149,37 @@ cat << EOF > /var/www/html/"${first_domain}"/index.html
 </html>
 EOF
 
+# to configure log rotation change /etc/logrotate.d/nginx file
+# now logrotation uses default configuration for all *.log files
 # create a website contenst for the second domain the same as default nginx web page
 # just copy default index.html file
-cp /var/www/html/index.nginx*.html "/var/www/html/${second_domain}/index.html"
+if [[ "$(awk -F"=" '/^ID_LIKE=/ {printf $2}' /etc/os-release)" == \"debian\" ]]; then
+    cp /var/www/html/index.nginx*.html "/var/www/html/${second_domain}/index.html"
 
-# change ownership of both websites recursevely
-chown -R "${username_first}":www-data "/var/www/html/${first_domain}"
-chown -R "${username_second}":www-data "/var/www/html/${second_domain}"
+    # create config files
+    printf "%s\n" "${first_config}" | sudo tee /etc/nginx/sites-available/"${first_domain}".conf > /dev/null
+    printf "%s\n" "${second_config}" | sudo tee /etc/nginx/sites-available/"${second_domain}".conf > /dev/null
+    
+    # enable virtual hosts
+    unlink /etc/nginx/sites-enabled/default # disable default index.html page
+    ln -s "/etc/nginx/sites-available/${first_domain}.conf" /etc/nginx/sites-enabled/
+    ln -s "/etc/nginx/sites-available/${second_domain}.conf" /etc/nginx/sites-enabled/
+
+    # change ownership of both websites recursevely
+    chown -R "${username_first}":"${nginx_user_debian}" "/var/www/html/${first_domain}"
+    chown -R "${username_second}":"${nginx_user_debian}" "/var/www/html/${second_domain}"
+
+elif [[ "$(awk -F"=" '/^ID_LIKE=/ {printf $2}' /etc/os-release)" == \"fedora\" ]]; then
+    cp /usr/share/nginx/html/index.html "/var/www/html/${second_domain}/index.html"
+
+    # create config files
+    printf "%s\n" "${first_config}" | sudo tee /etc/nginx/conf.d/"${first_domain}".conf > /dev/null
+    printf "%s\n" "${second_config}" | sudo tee /etc/nginx/conf.d/"${second_domain}".conf > /dev/null
+
+    # change ownership of both websites recursevely
+    chown -R "${username_first}":"${nginx_user_fedora}" "/var/www/html/${first_domain}"
+    chown -R "${username_second}":"${nginx_user_fedora}" "/var/www/html/${second_domain}"
+fi
 
 # restrict permissions for these files and directories directories
 find "/var/www/html/${first_domain}" -type f -exec chmod 644 {} \;
@@ -162,25 +187,21 @@ find "/var/www/html/${first_domain}" -type d -exec chmod 755 {} \;
 find "/var/www/html/${second_domain}" -type f -exec chmod 644 {} \;
 find "/var/www/html/${second_domain}" -type d -exec chmod 755 {} \;
 
-# enable virtual hosts
-unlink /etc/nginx/sites-enabled/default # disable default index.html page
-ln -s "/etc/nginx/sites-available/${first_domain}.conf" /etc/nginx/sites-enabled/
-ln -s "/etc/nginx/sites-available/${second_domain}.conf" /etc/nginx/sites-enabled/
-
 # reload configuration
 systemctl reload nginx
 
-# update /etc/hosts to check domain using curl
-printf "%s\n" "${public_ip} ${first_domain}" | sudo tee -a /etc/hosts > /dev/null
-printf "%s\n" "${public_ip} ${second_domain}" | sudo tee -a /etc/hosts > /dev/null
-
-## configure iptables
+# configure iptables
 iptables -F # first remove all rules
 iptables -A INPUT -p tcp -m multiport --dports 22,80,443 -m state --state NEW,ESTABLISHED -j ACCEPT
 iptables -A OUTPUT -p tcp -m multiport --sports 22,80,443 -m state --state ESTABLISHED -j ACCEPT
 iptables --policy INPUT DROP
 iptables --policy OUTPUT DROP 
 
-## it is not nesessary, it is configured beause we want to make curl -k https://our-domain.com
+# not nessessary block
+# update /etc/hosts to check domain using curl
+printf "%s\n" "${public_ip} ${first_domain}" | sudo tee -a /etc/hosts > /dev/null
+printf "%s\n" "${public_ip} ${second_domain}" | sudo tee -a /etc/hosts > /dev/null
+
+# we want to make curl -k https://our-domain.com
 iptables -A INPUT -s "${first_domain},${second_domain}" -j ACCEPT
 iptables -A OUTPUT -d "${first_domain},${second_domain}" -j ACCEPT
