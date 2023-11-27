@@ -63,8 +63,18 @@ else
 fi
 
 # shell vars
-nginx_user_debian="www-data"
-nginx_user_fedora="nginx"
+if [[ "$(awk -F"=" '/^ID_LIKE=/ {printf $2}' /etc/os-release)" == "debian" ]]; then
+    nginx_user="www-data"
+    nginx_crt_path=/etc/ssl/certs/nginx.crt
+    nginx_key_path=/etc/ssl/private/nginx.key
+elif [[ "$(awk -F"=" '/^ID_LIKE=/ {printf $2}' /etc/os-release)" == \"fedora\" ]]; then
+    nginx_user="nginx"
+    nginx_crt_path=/etc/pki/tls/certs/nginx.crt
+    nginx_key_path=/etc/pki/tls/private/nginx.key
+else
+    echo "Unsupported Linux distribution" && exit 1
+fi
+
 private_ip=$(ip route get 1 | awk 'NR==1 {print $7}')
 hostname=$(hostname)
 # assign config files to vars
@@ -77,8 +87,8 @@ server {
 }
 server {
     listen 443 ssl;
-    ssl_certificate     /etc/ssl/certs/nginx.crt;
-    ssl_certificate_key /etc/ssl/private/nginx.key;
+    ssl_certificate     ${nginx_crt_path};
+    ssl_certificate_key ${nginx_key_path};
     server_name ${first_domain}; 
     root /var/www/html/${first_domain};
     index index.html;
@@ -99,8 +109,8 @@ server {
 }
 server {
     listen 443 ssl;
-    ssl_certificate     /etc/ssl/certs/nginx.crt;
-    ssl_certificate_key /etc/ssl/private/nginx.key;
+    ssl_certificate     ${nginx_crt_path};
+    ssl_certificate_key ${nginx_key_path};
     server_name ${second_domain};
     root /var/www/html/${second_domain};
     index index.html;
@@ -140,10 +150,6 @@ if [[ "$(awk -F"=" '/^ID_LIKE=/ {printf $2}' /etc/os-release)" == "debian" ]]; t
     ln -s "/etc/nginx/sites-available/${first_domain}.conf" /etc/nginx/sites-enabled/
     ln -s "/etc/nginx/sites-available/${second_domain}.conf" /etc/nginx/sites-enabled/
 
-    # change ownership of both websites recursevely
-    chown -R "${username_first}:${nginx_user_debian}" "/var/www/html/${first_domain}"
-    chown -R "${username_second}:${nginx_user_debian}" "/var/www/html/${second_domain}"
-
 elif [[ "$(awk -F"=" '/^ID_LIKE=/ {printf $2}' /etc/os-release)" == \"fedora\" ]]; then
     # CentOS or RHEL
     # update system, install required packages
@@ -160,16 +166,9 @@ elif [[ "$(awk -F"=" '/^ID_LIKE=/ {printf $2}' /etc/os-release)" == \"fedora\" ]
     printf "%s\n" "${first_config}" | sudo tee /etc/nginx/conf.d/"${first_domain}".conf > /dev/null
     printf "%s\n" "${second_config}" | sudo tee /etc/nginx/conf.d/"${second_domain}".conf > /dev/null
 
-    # change ownership of both websites recursevely
-    chown -R "${username_first}:${nginx_user_fedora}" "/var/www/html/${first_domain}"
-    chown -R "${username_second}:${nginx_user_fedora}" "/var/www/html/${second_domain}"
-
-    # disable SELinux
-    ausearch -c 'nginx' --raw | audit2allow -M nginx-policy
-    semodule -i nginx-policy.pp
-    # or you can temporary disable SELinux running "setenforce 0"
-else
-    echo "Unsupported Linux distribution" && exit 1
+    # configure SELinux
+    # temporary disable SELinux running
+    setenforce 0
 fi
 
 # create a simple website content
@@ -184,10 +183,12 @@ cat << EOF > /var/www/html/"${first_domain}"/index.html
 EOF
 
 # create ssl certs, we will use them for both websites
-mkdir -p /etc/ssl/private
 openssl req -batch -x509 -nodes -days 365 -newkey rsa:2048 \
-    -keyout /etc/ssl/private/nginx.key \
-    -out /etc/ssl/certs/nginx.crt
+    -keyout "${nginx_key_path}" -out "${nginx_crt_path}
+"
+# change ownership of both websites recursevely
+chown -R "${username_first}:${nginx_user}" "/var/www/html/${first_domain}"
+chown -R "${username_second}:${nginx_user}" "/var/www/html/${second_domain}"
 
 # restrict permissions for these files and directories directories
 find "/var/www/html/${first_domain}" -type f -exec chmod 644 {} \;
