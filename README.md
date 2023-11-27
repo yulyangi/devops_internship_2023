@@ -13,7 +13,7 @@ git clone https://github.com/yulyangi/devops_internship_2023.git
 
 *you need a user on remote server with enabled password authentication*
 
-*then execute the script running as user without sudo privileges, ssh connection will be configured*
+*then execute the script as user without sudo privileges, ssh connection special restricted user  be configured*
 
 ```
 bash 0-configure-ssh.sh
@@ -28,7 +28,7 @@ ssh  -i ~/.ssh/your-public-key remote-user@ip-address-remote-server
 ```
 *on remote server execute **1-create-user.sh**  as user with sudo privileges*
 
-*will be created special restricted user to run nginx script*
+*special restricted user will be created*
 ```
 sudo bash /tmp/1-create-user.sh
 ```

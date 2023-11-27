@@ -207,7 +207,7 @@ iptables -A OUTPUT -p tcp -m multiport --sports 22,80,443 -m state --state ESTAB
 iptables --policy INPUT DROP
 iptables --policy OUTPUT DROP 
 
-# not nessessary block
+# not necessary block
 # update /etc/hosts to check domain using curl
 printf "%s\n" "${public_ip} ${first_domain}" | sudo tee -a /etc/hosts > /dev/null
 printf "%s\n" "${public_ip} ${second_domain}" | sudo tee -a /etc/hosts > /dev/null

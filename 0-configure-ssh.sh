@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # error handling
-set -euo pipefail
+set -eo pipefail
 
 script_name=$(basename "$0")
 declare remote_user
@@ -15,9 +15,17 @@ Usage:
      -k|--key       Key name
      -u|--user      Remote user
      -s|--server    IP address of remote server (IPv4)
-                    Example: ./${script_name} -k mykey -u user -s 8.8.8.8
-                    Key will be created as ~/.ssh/id_rsa_<remote_user>_key
+                    Example: ./${script_name} -k keyname -u user -s 8.8.8.8
+                    Key will be created as ~/.ssh/keyname
 EOF
+}
+
+function create_ssh_key(){
+    # generate ssh key
+    ssh-keygen -f "/home/${USER}/.ssh/${key_name}" -t rsa -N ""
+    chmod 400 "/home/${USER}/.ssh/${key_name}"
+    # copy ssh key to remote server
+    ssh-copy-id -i "/home/${USER}/.ssh/${key_name}" "${remote_user}@${remote_server}"
 }
 
 function parse_params() {
@@ -54,19 +62,13 @@ function parse_params() {
                 ;;
         esac
     done
-
-    if [ -z "${key_name}" ] || [ -z "${remote_user}" ] || [ -z "${remote_server}" ]; then
-        echo "Invalid options were provided!" && script_usage && exit 1
-    fi
-}
-
-function create_ssh_key(){
-    # generate ssh key
-    ssh-keygen -f "/home/${USER}/.ssh/${key_name}" -t rsa -N ""
-    chmod 400 "/home/${USER}/.ssh/${key_name}"
-    # copy ssh key to remote server
-    ssh-copy-id -i "/home/${USER}/.ssh/${key_name}" "${remote_user}@${remote_server}"
 }
 
 parse_params "${@}"
-create_ssh_key
+
+# main condition
+if [ -z "${key_name}" ] || [ -z "${remote_user}" ] || [ -z "${remote_server}" ]; then 
+    echo "No args were provided!"; script_usage && exit 1
+else 
+    create_ssh_key
+fi
