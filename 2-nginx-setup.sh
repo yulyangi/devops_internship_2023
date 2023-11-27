@@ -12,7 +12,7 @@ if [[ "${system_type}" == "debian" ]]; then
     nginx_user="www-data"
     nginx_crt_path=/etc/ssl/certs/nginx.crt
     nginx_key_path=/etc/ssl/private/nginx.key
-elif [[ "${system_type}" == \"fedora\" ]]; then
+elif [[ "${system_type}" == \"fedora\" || "${system_type}" == "\"rhel fedora\"" ]]; then
     nginx_user="nginx"
     nginx_crt_path=/etc/pki/tls/certs/nginx.crt
     nginx_key_path=/etc/pki/tls/private/nginx.key
@@ -152,7 +152,7 @@ if [[ "${system_type}" == "debian" ]]; then
     ln -s "/etc/nginx/sites-available/${first_domain}.conf" /etc/nginx/sites-enabled/
     ln -s "/etc/nginx/sites-available/${second_domain}.conf" /etc/nginx/sites-enabled/
 
-elif [[ "${system_type}" == \"fedora\" ]]; then
+elif [[ "${system_type}" == \"fedora\" || "${system_type}" == "\"rhel fedora\"" ]]; then
     # CentOS or RHEL
     # update system, install required packages
     # to configure log rotation change /etc/logrotate.d/nginx file
@@ -214,6 +214,7 @@ iptables --policy OUTPUT DROP
 
 # not necessary block
 # update /etc/hosts to check domain using curl
+# if you use virtual machines write <private_ip> <domain_name> to /etc/hosts file
 printf "%s\n" "${public_ip} ${first_domain}" | sudo tee -a /etc/hosts > /dev/null
 printf "%s\n" "${public_ip} ${second_domain}" | sudo tee -a /etc/hosts > /dev/null
 printf "%s\n" "${private_ip} ${hostname}" | sudo tee -a /etc/hosts > /dev/null

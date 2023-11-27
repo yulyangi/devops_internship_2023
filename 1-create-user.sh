@@ -19,7 +19,7 @@ if [ "${UID}" -eq 0 ]; then
         # Ubuntu or Debian
         apt-get update && apt-get install -y perl
         systemctl restart ssh
-    elif [[ "${system_type}" == \"fedora\" ]]; then
+    elif [[ "${system_type}" == \"fedora\" || "${system_type}" == "\"rhel fedora\"" ]]; then
         # CentOS or RHEL
         yum -y update && yum install -y perl
         systemctl restart sshd
