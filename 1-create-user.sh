@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # error handling
-set -e
+set -euo pipefail
 
 main_script_path="/tmp/2-nginx-setup.sh"
 
@@ -14,7 +14,7 @@ if [ "${UID}" -eq 0 ]; then
     sed -i -e 's/^#*PubkeyAuthentication .*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
 
     # update system, install perl
-    if [[ "$(awk -F"=" '/^ID_LIKE=/ {printf $2}' /etc/os-release)" == \"debian\" ]]; then
+    if [[ "$(awk -F"=" '/^ID_LIKE=/ {printf $2}' /etc/os-release)" == "debian" ]]; then
         # Ubuntu or Debian
         apt-get update && apt-get install -y perl
         systemctl restart ssh
@@ -53,6 +53,9 @@ fi
 # restrict permissions for the nginx script
 chmod 544 "${main_script_path}"
 chown "${username}:root" "${main_script_path}"
+
+# make script imutable
+chattr +i "${main_script_path}"
 
 # configure suders to restrict run only this script
 cat << EOF > /etc/sudoers.d/"${username}"

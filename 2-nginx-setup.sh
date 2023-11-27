@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # error handling
-set -ex
+set -euxo pipefail
 
 # func to check if valid domain
 function validate_domain() {
@@ -25,7 +25,7 @@ after executing the script 'sudo passwd ${username}') : " password
         if useradd --create-home --shell /bin/bash -p "${pass}" "${username}"; then
             printf "%s\n" "${username}" 
         else
-            printf "%s\n" "Failed to add a user!" && exit 1
+            echo "Failed to add a user!" && exit 1
         fi
     fi 
 }
@@ -58,14 +58,15 @@ if [ "${UID}" -eq 0 ]; then
     validate_domain "${second_domain}"
     printf "%s\n" "Create user for administrating ${second_domain}"
     username_second="$(create_user)"
+else
+    echo "You need root privileges to run this script!" && exit 1
 fi
 
 # shell vars
 nginx_user_debian="www-data"
 nginx_user_fedora="nginx"
-private_ip=$(bash -c "ip route get 1 | awk 'NR==1{print \$7}'")
-public_ip=$(bash -c "curl ident.me")
-hostname=$(bash -c "hostname")
+private_ip=$(ip route get 1 | awk 'NR==1 {print $7}')
+hostname=$(hostname)
 # assign config files to vars
 first_config=$(
 cat <<EOF
@@ -112,48 +113,22 @@ server {
 EOF
 )
 
-# update system, install nginx, logrotate, disable default firewall
-if [[ "$(awk -F"=" '/^ID_LIKE=/ {printf $2}' /etc/os-release)" == \"debian\" ]]; then
-    # Ubuntu or Debian
-    apt-get update && apt-get install -y nginx logrotate openssl curl
-    enable_service nginx
-    disable_service ufw
-elif [[ "$(awk -F"=" '/^ID_LIKE=/ {printf $2}' /etc/os-release)" == \"fedora\" ]]; then
-    # CentOS or RHEL
-    yum -y update && yum install -y nginx logrotate openssl curl iptables-services
-    enable_service nginx
-    disable_service firewalld
-else
-    printf "%s\n" "Unsupported Linux distribution" && exit 1
-fi
-
 ## configure nginx
 # create directories for the domains
 mkdir -p "/var/www/html/${first_domain}"
 mkdir -p "/var/www/html/${second_domain}"
 
-# create ssl certs
-# we will use them for both websites
-mkdir -p /etc/ssl/private
-openssl req -batch -x509 -nodes -days 365 -newkey rsa:2048 \
-    -keyout /etc/ssl/private/nginx.key \
-    -out /etc/ssl/certs/nginx.crt
+# main condition
+if [[ "$(awk -F"=" '/^ID_LIKE=/ {printf $2}' /etc/os-release)" == "debian" ]]; then
+    # Ubuntu or Debian
+    # update system, install required packages
+    # to configure log rotation change /etc/logrotate.d/nginx file
+    # logrotation will use default configuration for all *.log files
+    apt-get update && apt-get install -y nginx logrotate openssl curl
+    enable_service nginx
+    disable_service ufw
 
-# create a simple website content
-cat << EOF > /var/www/html/"${first_domain}"/index.html
-<html>
-<title>${first_domain}</title>
-<h1>Public IP address: ${public_ip}</h1>
-<h1>Private IP address: ${private_ip}</h1>
-<h1>Hostname: ${hostname}</h1>
-</html>
-EOF
-
-# to configure log rotation change /etc/logrotate.d/nginx file
-# now logrotation uses default configuration for all *.log files
-# create a website contenst for the second domain the same as default nginx web page
-# just copy default index.html file
-if [[ "$(awk -F"=" '/^ID_LIKE=/ {printf $2}' /etc/os-release)" == \"debian\" ]]; then
+    # create a website contenst for the second domain the same as default nginx web page
     cp /var/www/html/index.nginx*.html "/var/www/html/${second_domain}/index.html"
 
     # create config files
@@ -166,10 +141,19 @@ if [[ "$(awk -F"=" '/^ID_LIKE=/ {printf $2}' /etc/os-release)" == \"debian\" ]];
     ln -s "/etc/nginx/sites-available/${second_domain}.conf" /etc/nginx/sites-enabled/
 
     # change ownership of both websites recursevely
-    chown -R "${username_first}":"${nginx_user_debian}" "/var/www/html/${first_domain}"
-    chown -R "${username_second}":"${nginx_user_debian}" "/var/www/html/${second_domain}"
+    chown -R "${username_first}:${nginx_user_debian}" "/var/www/html/${first_domain}"
+    chown -R "${username_second}:${nginx_user_debian}" "/var/www/html/${second_domain}"
 
 elif [[ "$(awk -F"=" '/^ID_LIKE=/ {printf $2}' /etc/os-release)" == \"fedora\" ]]; then
+    # CentOS or RHEL
+    # update system, install required packages
+    # to configure log rotation change /etc/logrotate.d/nginx file
+    # logrotation will use default configuration for all *.log files
+    yum -y update && yum install -y nginx logrotate openssl curl iptables-services
+    enable_service nginx
+    disable_service firewalld
+    
+    # create a website contenst for the second domain the same as default nginx web page
     cp /usr/share/nginx/html/index.html "/var/www/html/${second_domain}/index.html"
 
     # create config files
@@ -177,9 +161,33 @@ elif [[ "$(awk -F"=" '/^ID_LIKE=/ {printf $2}' /etc/os-release)" == \"fedora\" ]
     printf "%s\n" "${second_config}" | sudo tee /etc/nginx/conf.d/"${second_domain}".conf > /dev/null
 
     # change ownership of both websites recursevely
-    chown -R "${username_first}":"${nginx_user_fedora}" "/var/www/html/${first_domain}"
-    chown -R "${username_second}":"${nginx_user_fedora}" "/var/www/html/${second_domain}"
+    chown -R "${username_first}:${nginx_user_fedora}" "/var/www/html/${first_domain}"
+    chown -R "${username_second}:${nginx_user_fedora}" "/var/www/html/${second_domain}"
+
+    # disable SELinux
+    ausearch -c 'nginx' --raw | audit2allow -M nginx-policy
+    semodule -i nginx-policy.pp
+    # or you can temporary disable SELinux running "setenforce 0"
+else
+    echo "Unsupported Linux distribution" && exit 1
 fi
+
+# create a simple website content
+public_ip=$(curl ident.me)
+cat << EOF > /var/www/html/"${first_domain}"/index.html
+<html>
+<title>${first_domain}</title>
+<h1>Public IP address: ${public_ip}</h1>
+<h1>Private IP address: ${private_ip}</h1>
+<h1>Hostname: ${hostname}</h1>
+</html>
+EOF
+
+# create ssl certs, we will use them for both websites
+mkdir -p /etc/ssl/private
+openssl req -batch -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout /etc/ssl/private/nginx.key \
+    -out /etc/ssl/certs/nginx.crt
 
 # restrict permissions for these files and directories directories
 find "/var/www/html/${first_domain}" -type f -exec chmod 644 {} \;
@@ -201,7 +209,6 @@ iptables --policy OUTPUT DROP
 # update /etc/hosts to check domain using curl
 printf "%s\n" "${public_ip} ${first_domain}" | sudo tee -a /etc/hosts > /dev/null
 printf "%s\n" "${public_ip} ${second_domain}" | sudo tee -a /etc/hosts > /dev/null
-
 # we want to make curl -k https://our-domain.com
 iptables -A INPUT -s "${first_domain},${second_domain}" -j ACCEPT
 iptables -A OUTPUT -d "${first_domain},${second_domain}" -j ACCEPT

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # error handling
-set -ex
+set -euo pipefail
 
 script_name=$(basename "$0")
 declare remote_user
