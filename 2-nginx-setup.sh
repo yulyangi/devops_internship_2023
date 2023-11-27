@@ -7,6 +7,7 @@ set -euxo pipefail
 system_type=$(awk -F"=" '/^ID_LIKE=/ {printf $2}' /etc/os-release)
 private_ip=$(ip route get 1 | awk 'NR==1 {print $7}')
 hostname=$(hostname)
+
 if [[ "${system_type}" == "debian" ]]; then
     nginx_user="www-data"
     nginx_crt_path=/etc/ssl/certs/nginx.crt
@@ -168,8 +169,9 @@ elif [[ "${system_type}" == \"fedora\" ]]; then
     printf "%s\n" "${second_config}" | sudo tee /etc/nginx/conf.d/"${second_domain}".conf > /dev/null
 
     # configure SELinux
-    # temporary disable SELinux
+    # disable SELinux
     setenforce 0
+    sed -i -e 's/^SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
 fi
 
 # create a simple website content
@@ -204,6 +206,9 @@ systemctl reload nginx
 iptables -F # first remove all rules
 iptables -A INPUT -p tcp -m multiport --dports 22,80,443 -m state --state NEW,ESTABLISHED -j ACCEPT
 iptables -A OUTPUT -p tcp -m multiport --sports 22,80,443 -m state --state ESTABLISHED -j ACCEPT
+# allow all loopback traffic
+iptables -A INPUT -i lo -j ACCEPT
+iptables -A OUTPUT -o lo -j ACCEPT
 iptables --policy INPUT DROP
 iptables --policy OUTPUT DROP 
 
@@ -211,6 +216,7 @@ iptables --policy OUTPUT DROP
 # update /etc/hosts to check domain using curl
 printf "%s\n" "${public_ip} ${first_domain}" | sudo tee -a /etc/hosts > /dev/null
 printf "%s\n" "${public_ip} ${second_domain}" | sudo tee -a /etc/hosts > /dev/null
+printf "%s\n" "${private_ip} ${hostname}" | sudo tee -a /etc/hosts > /dev/null
 # we want to make curl -k https://our-domain.com
-iptables -A INPUT -s "${first_domain},${second_domain}" -j ACCEPT
-iptables -A OUTPUT -d "${first_domain},${second_domain}" -j ACCEPT
+iptables -A INPUT -s "${public_ip}" -j ACCEPT
+iptables -A OUTPUT -d "${public_ip}" -j ACCEPT

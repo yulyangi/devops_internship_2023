@@ -24,7 +24,7 @@ scp -i ~/.ssh/your-public-key path_to_scripts remote-user@ip-address-remote-serv
 ```
 *login to the remote server*
 ```
-ssh  -i ~/.ssh/your-public-key remote-user@ip-address-remote-server
+ssh -i ~/.ssh/your-public-key remote-user@ip-address-remote-server
 ```
 *on remote server execute **1-create-user.sh**  as user with sudo privileges*
 
