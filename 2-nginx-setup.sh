@@ -184,8 +184,8 @@ EOF
 
 # create ssl certs, we will use them for both websites
 openssl req -batch -x509 -nodes -days 365 -newkey rsa:2048 \
-    -keyout "${nginx_key_path}" -out "${nginx_crt_path}
-"
+    -keyout "${nginx_key_path}" -out "${nginx_crt_path}"
+    
 # change ownership of both websites recursevely
 chown -R "${username_first}:${nginx_user}" "/var/www/html/${first_domain}"
 chown -R "${username_second}:${nginx_user}" "/var/www/html/${second_domain}"
