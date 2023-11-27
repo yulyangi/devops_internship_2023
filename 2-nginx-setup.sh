@@ -3,6 +3,22 @@
 # error handling
 set -euxo pipefail
 
+# shell vars
+system_type=$(awk -F"=" '/^ID_LIKE=/ {printf $2}' /etc/os-release)
+private_ip=$(ip route get 1 | awk 'NR==1 {print $7}')
+hostname=$(hostname)
+if [[ "${system_type}" == "debian" ]]; then
+    nginx_user="www-data"
+    nginx_crt_path=/etc/ssl/certs/nginx.crt
+    nginx_key_path=/etc/ssl/private/nginx.key
+elif [[ "${system_type}" == \"fedora\" ]]; then
+    nginx_user="nginx"
+    nginx_crt_path=/etc/pki/tls/certs/nginx.crt
+    nginx_key_path=/etc/pki/tls/private/nginx.key
+else
+    echo "Unsupported Linux distribution" && exit 1
+fi
+
 # func to check if valid domain
 function validate_domain() {
     local domain="${1}"
@@ -62,21 +78,6 @@ else
     echo "You need root privileges to run this script!" && exit 1
 fi
 
-# shell vars
-if [[ "$(awk -F"=" '/^ID_LIKE=/ {printf $2}' /etc/os-release)" == "debian" ]]; then
-    nginx_user="www-data"
-    nginx_crt_path=/etc/ssl/certs/nginx.crt
-    nginx_key_path=/etc/ssl/private/nginx.key
-elif [[ "$(awk -F"=" '/^ID_LIKE=/ {printf $2}' /etc/os-release)" == \"fedora\" ]]; then
-    nginx_user="nginx"
-    nginx_crt_path=/etc/pki/tls/certs/nginx.crt
-    nginx_key_path=/etc/pki/tls/private/nginx.key
-else
-    echo "Unsupported Linux distribution" && exit 1
-fi
-
-private_ip=$(ip route get 1 | awk 'NR==1 {print $7}')
-hostname=$(hostname)
 # assign config files to vars
 first_config=$(
 cat <<EOF
@@ -129,7 +130,7 @@ mkdir -p "/var/www/html/${first_domain}"
 mkdir -p "/var/www/html/${second_domain}"
 
 # main condition
-if [[ "$(awk -F"=" '/^ID_LIKE=/ {printf $2}' /etc/os-release)" == "debian" ]]; then
+if [[ "${system_type}" == "debian" ]]; then
     # Ubuntu or Debian
     # update system, install required packages
     # to configure log rotation change /etc/logrotate.d/nginx file
@@ -150,7 +151,7 @@ if [[ "$(awk -F"=" '/^ID_LIKE=/ {printf $2}' /etc/os-release)" == "debian" ]]; t
     ln -s "/etc/nginx/sites-available/${first_domain}.conf" /etc/nginx/sites-enabled/
     ln -s "/etc/nginx/sites-available/${second_domain}.conf" /etc/nginx/sites-enabled/
 
-elif [[ "$(awk -F"=" '/^ID_LIKE=/ {printf $2}' /etc/os-release)" == \"fedora\" ]]; then
+elif [[ "${system_type}" == \"fedora\" ]]; then
     # CentOS or RHEL
     # update system, install required packages
     # to configure log rotation change /etc/logrotate.d/nginx file
@@ -167,7 +168,7 @@ elif [[ "$(awk -F"=" '/^ID_LIKE=/ {printf $2}' /etc/os-release)" == \"fedora\" ]
     printf "%s\n" "${second_config}" | sudo tee /etc/nginx/conf.d/"${second_domain}".conf > /dev/null
 
     # configure SELinux
-    # temporary disable SELinux running
+    # temporary disable SELinux
     setenforce 0
 fi
 
@@ -185,7 +186,7 @@ EOF
 # create ssl certs, we will use them for both websites
 openssl req -batch -x509 -nodes -days 365 -newkey rsa:2048 \
     -keyout "${nginx_key_path}" -out "${nginx_crt_path}"
-    
+
 # change ownership of both websites recursevely
 chown -R "${username_first}:${nginx_user}" "/var/www/html/${first_domain}"
 chown -R "${username_second}:${nginx_user}" "/var/www/html/${second_domain}"

@@ -4,6 +4,7 @@
 set -euo pipefail
 
 main_script_path="/tmp/2-nginx-setup.sh"
+system_type=$(awk -F"=" '/^ID_LIKE=/ {printf $2}' /etc/os-release)
 
 # check if you are a root
 if [ "${UID}" -eq 0 ]; then
@@ -14,11 +15,11 @@ if [ "${UID}" -eq 0 ]; then
     sed -i -e 's/^#*PubkeyAuthentication .*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
 
     # update system, install perl
-    if [[ "$(awk -F"=" '/^ID_LIKE=/ {printf $2}' /etc/os-release)" == "debian" ]]; then
+    if [[ "${system_type}" == "debian" ]]; then
         # Ubuntu or Debian
         apt-get update && apt-get install -y perl
         systemctl restart ssh
-    elif [[ "$(awk -F"=" '/^ID_LIKE=/ {printf $2}' /etc/os-release)" == \"fedora\" ]]; then
+    elif [[ "${system_type}" == \"fedora\" ]]; then
         # CentOS or RHEL
         yum -y update && yum install -y perl
         systemctl restart sshd
