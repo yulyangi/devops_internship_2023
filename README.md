@@ -2,6 +2,7 @@
   * Yulyan Glonti's playground
 
 ## grab it
+*on client machine*
 
 ```
 git clone https://github.com/yulyangi/devops_internship_2023.git
