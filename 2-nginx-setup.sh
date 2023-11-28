@@ -169,9 +169,13 @@ elif [[ "${system_type}" == \"fedora\" || "${system_type}" == "\"rhel fedora\"" 
     printf "%s\n" "${second_config}" | sudo tee /etc/nginx/conf.d/"${second_domain}".conf > /dev/null
 
     # configure SELinux
-    # disable SELinux
-    setenforce 0
-    sed -i -e 's/^SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
+    if [[ $(getenforce) != "disabled" ]]; then
+        # allow web server access to these directories, change type "var_t"->"httpd_sys_content_t"
+        chcon -R -t httpd_sys_content_t /var/www/html/*
+        # or disable SELinux
+        # setenforce 0
+        # sed -i -e 's/^SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
+    fi
 fi
 
 # create a simple website content
