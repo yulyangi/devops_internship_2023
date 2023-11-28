@@ -67,8 +67,9 @@ function parse_params() {
 parse_params "${@}"
 
 # main condition
-if [ -z "${key_name}" ] || [ -z "${remote_user}" ] || [ -z "${remote_server}" ]; then 
-    echo "No args were provided!"; script_usage && exit 1
+if [[ -z "${key_name}" || -z "${remote_user}" || -z "${remote_server}" ]]; then 
+    echo "No args were provided!"
+    script_usage && exit 1
 else 
     create_ssh_key
 fi
