@@ -11,7 +11,7 @@ if [ "${UID}" -eq 0 ]; then
     # secure ssh
     cp /etc/ssh/sshd_config /etc/ssh/sshd_config.orig
     sed -i -e 's/^#*PermitRootLogin .*/PermitRootLogin no/' /etc/ssh/sshd_config
-    sed -i -e 's/^#*PasswordAuthentication .*/PasswordAuthentication no/' /etc/ssh/sshd_config
+    sed -i -e 's/^#*PasswordAuthentication .*/PasswordAuthentication yes/' /etc/ssh/sshd_config
     sed -i -e 's/^#*PubkeyAuthentication .*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
 
     # update system, install perl

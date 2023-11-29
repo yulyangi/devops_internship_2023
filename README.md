@@ -44,3 +44,15 @@ sudo ./2-nginx-setup.sh
 curl -k https://your-frist-domain.com
 curl -k https://your-second-domain.com
 ```
+*to generate ssh keys for web site admins, on your client for each user run*
+```
+bash 0-configure-ssh.sh -k <keyname> -u <user-web-site-admin> -s <remote-server-ip-address>
+```
+*you will be able to connect to the remote server as web site admin running*
+```
+ssh -i ~/.ssh/keyname <user-web-site-admin>@<remote-server-ip-address>
+```
+*finally login to the remote server as user with sudo privileges and disable ssh PasswordAuthentication*
+```
+sudo sed -i -e 's/^#*PasswordAuthentication .*/PasswordAuthentication no/' /etc/ssh/sshd_config
+```
