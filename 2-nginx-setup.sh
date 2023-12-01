@@ -40,7 +40,6 @@ after executing the script 'sudo passwd ${username}') : " password
         printf "%s\n" "${username} exists!" && exit 1
     else
         pass=$(perl -e 'print crypt($ARGV[0], "password")' "${password}")
-        mkdir -p ${chroot_dir}/home
         if useradd --create-home --shell /usr/bin/bash -p "${pass}" "${username}"; then
             printf "%s\n" "${username}" 
         else
@@ -215,7 +214,6 @@ if [[ "${system_type}" == "debian" ]]; then
     apt-get update && apt-get install -y nginx logrotate openssl curl
     enable_service nginx
     disable_service ufw
-    # allow previos ssh chroot setup
     systemctl restart ssh
 
     # create a website contenst for the second domain the same as default nginx web page
@@ -238,7 +236,6 @@ elif [[ "${system_type}" == \"fedora\" || "${system_type}" == "\"rhel fedora\"" 
     yum -y update && yum install -y nginx logrotate openssl curl iptables-services
     enable_service nginx
     disable_service firewalld
-    # allow previos ssh chroot setup
     systemctl restart sshd
     
     # create a website contenst for the second domain the same as default nginx web page
