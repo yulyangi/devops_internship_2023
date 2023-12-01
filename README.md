@@ -21,7 +21,7 @@ bash 0-configure-ssh.sh
 ```
 *copy **1-create-user.sh** and **2-nginx-setup.sh** to the remote server to /tmp directory*
 ```
-scp -i ~/.ssh/<your-public-key> <path-to-scripts> <remote-user>@<ip-address-remote-server>:/tmp
+scp -i ~/.ssh/<your-public-key> 1-create-user.sh 2-nginx-setup.sh <remote-user>@<ip-address-remote-server>:/tmp
 ```
 *login to the remote server*
 ```
@@ -56,3 +56,5 @@ ssh -i ~/.ssh/keyname <user-web-site-admin>@<remote-server-ip-address>
 ```
 sudo sed -i -e 's/^#*PasswordAuthentication .*/PasswordAuthentication no/' /etc/ssh/sshd_config
 ```
+*and restart ssh*
+on debian ```systemctl restart ssh```, on fedora ```systemctl restart sshd```

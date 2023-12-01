@@ -7,6 +7,7 @@ set -euxo pipefail
 system_type=$(awk -F"=" '/^ID_LIKE=/ {printf $2}' /etc/os-release)
 private_ip=$(ip route get 1 | awk 'NR==1 {print $7}')
 hostname=$(hostname)
+chroot_dir=/home/webadmins
 
 if [[ "${system_type}" == "debian" ]]; then
     nginx_user="www-data"
@@ -39,7 +40,8 @@ after executing the script 'sudo passwd ${username}') : " password
         printf "%s\n" "${username} exists!" && exit 1
     else
         pass=$(perl -e 'print crypt($ARGV[0], "password")' "${password}")
-        if useradd --create-home --shell /bin/bash -p "${pass}" "${username}"; then
+        mkdir -p ${chroot_dir}/home
+        if useradd --create-home --shell /usr/bin/bash -p "${pass}" "${username}"; then
             printf "%s\n" "${username}" 
         else
             echo "Failed to add a user!" && exit 1
@@ -64,6 +66,51 @@ function disable_service() {
     fi
 }
 
+# function to copy commands to chroot dir
+function copy_commands(){
+    commands=("$@")
+    for command in "${commands[@]}"; do
+        command_path="$(which "${command}")"
+        command_dir="$(dirname "${command_path}")"
+
+        # copy each command
+        mkdir -p "${chroot_dir}${command_dir}"
+        cp "${command_path}" "${chroot_dir}${command_dir}/"
+
+        # grab and copy shared libraries of each command
+        command_libs="$(ldd "${command_path}" | awk '/=>/ {print $3}')"
+        for lib in $command_libs; do
+            command_libs_dir="$(dirname "${lib}")"
+            mkdir -p "${chroot_dir}${command_libs_dir}"
+            cp "${lib}" "${chroot_dir}${command_libs_dir}/"
+        done
+    done
+}
+
+
+# func to create chroot 
+function setup_chroot() {
+    local username=$1
+    local domain=$2
+    
+    # create directory for web admin
+    mkdir -p "${chroot_dir}/home/${username}/${domain}"
+    mkdir -p "${chroot_dir}/home/${username}/.ssh"
+    touch "${chroot_dir}/home/${username}/.ssh/authorized_keys"
+
+    chown -R "${username}":"${username}" "${chroot_dir}/home/${username}/"
+    chmod -R 700 "${chroot_dir}/home/${username}/"
+    chmod 600 "${chroot_dir}/home/${username}/.ssh/authorized_keys"
+
+    # configure sshd
+    cat << EOF >> /etc/ssh/sshd_config
+Match user ${username}
+ChrootDirectory ${chroot_dir}
+PasswordAuthentication yes
+AuthorizedKeysFile ${chroot_dir}/home/${username}/.ssh/authorized_keys
+EOF
+}
+
 # check if you are a root
 if [ "${UID}" -eq 0 ]; then
     # enter domain names and create users
@@ -71,10 +118,39 @@ if [ "${UID}" -eq 0 ]; then
     validate_domain "${first_domain}"
     printf "%s\n" "Create user for administrating ${first_domain}"
     username_first="$(create_user)"
+
     read -p "Enter second domain : " second_domain
     validate_domain "${second_domain}"
     printf "%s\n" "Create user for administrating ${second_domain}"
     username_second="$(create_user)"
+    
+    ## create chroot
+    # create required directories
+    mkdir -p {${chroot_dir}/dev,${chroot_dir}/bin,${chroot_dir}/lib,${chroot_dir}/lib64,${chroot_dir}/etc,${chroot_dir}/usr/bin,${chroot_dir}/home}
+    chown -R root:root "${chroot_dir}"
+    chmod -R 0755 "${chroot_dir}"
+    
+    # create special files
+    mknod -m 666 "${chroot_dir}/dev/null" c 1 3
+    mknod -m 666 "${chroot_dir}/dev/tty" c 5 0
+    mknod -m 666 "${chroot_dir}/dev/zero" c 1 5
+    mknod -m 666 "${chroot_dir}/dev/random" c 1 8
+
+    # copy required commands
+    copy_commands bash sh ls mkdir cat echo touch printf
+    # copy additional files
+    cp /lib64/ld-linux-x86-64.so.2 "${chroot_dir}/lib64/"
+    cp -f /etc/{passwd,group,hosts,shadow} "${chroot_dir}/etc/"
+    # copy all commands from /bin to /usr/bin to omit possible issues
+    /bin/cp -rf "${chroot_dir}/bin/." "${chroot_dir}/usr/bin/"
+
+    # set up one chroot directoy for both web admins
+    setup_chroot "${username_first}" "${first_domain}"
+    setup_chroot "${username_second}" "${second_domain}"
+
+    # remove existed home directories
+    rm -fr /home/"${username_first:?}"
+    rm -fr /home/"${username_second:?}"
 else
     echo "You need root privileges to run this script!" && exit 1
 fi
@@ -139,6 +215,8 @@ if [[ "${system_type}" == "debian" ]]; then
     apt-get update && apt-get install -y nginx logrotate openssl curl
     enable_service nginx
     disable_service ufw
+    # allow previos ssh chroot setup
+    systemctl restart ssh
 
     # create a website contenst for the second domain the same as default nginx web page
     cp /var/www/html/index.nginx*.html "/var/www/html/${second_domain}/index.html"
@@ -160,6 +238,8 @@ elif [[ "${system_type}" == \"fedora\" || "${system_type}" == "\"rhel fedora\"" 
     yum -y update && yum install -y nginx logrotate openssl curl iptables-services
     enable_service nginx
     disable_service firewalld
+    # allow previos ssh chroot setup
+    systemctl restart sshd
     
     # create a website contenst for the second domain the same as default nginx web page
     cp /usr/share/nginx/html/index.html "/var/www/html/${second_domain}/index.html"
@@ -197,7 +277,7 @@ openssl req -batch -x509 -nodes -days 365 -newkey rsa:2048 \
 chown -R "${username_first}:${nginx_user}" "/var/www/html/${first_domain}"
 chown -R "${username_second}:${nginx_user}" "/var/www/html/${second_domain}"
 
-# restrict permissions for these files and directories directories
+# restrict permissions for these files and directories
 find "/var/www/html/${first_domain}" -type f -exec chmod 644 {} \;
 find "/var/www/html/${first_domain}" -type d -exec chmod 755 {} \;
 find "/var/www/html/${second_domain}" -type f -exec chmod 644 {} \;
@@ -215,6 +295,13 @@ iptables -A INPUT -i lo -j ACCEPT
 iptables -A OUTPUT -o lo -j ACCEPT
 iptables --policy INPUT DROP
 iptables --policy OUTPUT DROP 
+
+# mount web site directory to chroot 
+mount --bind "/var/www/html/${first_domain}" "${chroot_dir}/home/${username_first}/${first_domain}"
+mount --bind "/var/www/html/${second_domain}" "${chroot_dir}/home/${username_second}/${second_domain}"
+# mount web site directory to chroot permanently
+printf "%s\n" "/var/www/html/${first_domain} ${chroot_dir}/home/${username_first}/${first_domain} none bind" | sudo tee -a /etc/fstab > /dev/null
+printf "%s\n" "/var/www/html/${second_domain} ${chroot_dir}/home/${username_second}/${second_domain} none bind" | sudo tee -a /etc/fstab > /dev/null
 
 # not necessary block
 # update /etc/hosts to check domain using curl
