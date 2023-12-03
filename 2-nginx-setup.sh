@@ -77,15 +77,14 @@ function copy_commands(){
         cp "${command_path}" "${chroot_dir}${command_dir}/"
 
         # grab and copy shared libraries of each command
-        command_libs="$(ldd "${command_path}" | awk '/=>/ {print $3}')"
-        for lib in $command_libs; do
+        command_libs="$(ldd "${command_path}" | awk '/=> \// {print $3}')"
+        for lib in ${command_libs}; do
             command_libs_dir="$(dirname "${lib}")"
             mkdir -p "${chroot_dir}${command_libs_dir}"
             cp "${lib}" "${chroot_dir}${command_libs_dir}/"
         done
     done
 }
-
 
 # func to create chroot 
 function setup_chroot() {
@@ -136,11 +135,10 @@ if [ "${UID}" -eq 0 ]; then
     mknod -m 666 "${chroot_dir}/dev/random" c 1 8
 
     # copy required commands
-    copy_commands bash sh ls mkdir cat echo touch printf
+    copy_commands bash sh ls mkdir cat echo touch printf rm cp mv grep
     # copy additional files
     cp /lib64/ld-linux-x86-64.so.2 "${chroot_dir}/lib64/"
-    cp -f /etc/{passwd,group,hosts,shadow} "${chroot_dir}/etc/"
-    # copy all commands from /bin to /usr/bin to omit possible issues
+    # copy all commands from /bin to /usr/bin to avoid possible issues
     /bin/cp -rf "${chroot_dir}/bin/." "${chroot_dir}/usr/bin/"
 
     # set up one chroot directoy for both web admins
@@ -293,6 +291,8 @@ iptables -A OUTPUT -o lo -j ACCEPT
 iptables --policy INPUT DROP
 iptables --policy OUTPUT DROP 
 
+# copy files with last changes to chroot directory
+cp /etc/{passwd,group,hosts,shadow} "${chroot_dir}/etc/"
 # mount web site directory to chroot 
 mount --bind "/var/www/html/${first_domain}" "${chroot_dir}/home/${username_first}/${first_domain}"
 mount --bind "/var/www/html/${second_domain}" "${chroot_dir}/home/${username_second}/${second_domain}"
