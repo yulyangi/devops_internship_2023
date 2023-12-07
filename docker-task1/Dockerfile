@@ -1,63 +1,71 @@
-FROM python
-ARG VENV_DIR=/venv
-LABEL maintainer="Valera" \
-os='Debian' \
- 
-ENV USER_ID=500 \
-GROUP_ID=1000 \
-USER_NAME=docker \
-VENV_DIR=${VENV_DIR}
- 
-ADD ./object.tar.gz $VENV_DIR
- 
-USER ${USER_NAME}
- 
-RUN groupadd -r ${USER_NAME} -g ${GROUP_ID} && useradd -u ${USER_ID} -r -g ${GROUP_ID} ${USER_NAME}
-RUN apt update && apt upgrade -y
-RUN python3 -m venv $VENV_DIR && \
-chown -R $USER_ID:$GROUP_ID $VENV_DIR
-RUN apt-get clean && rm -rf / var/cache/apt/archives
-RUN unzip $VENV_DIR/object.tar.gz
- 
-WORKDIR $VENV_DIR
-EXPOSE 8080
- 
-ENTRYPOINT ./bin/python3 run.py --port 8080 --json-logging --access-log
+# the fastest way to use "python:alpine" distribution
+# without creating additional virtual env
+# example:
+# FROM python:3.9.18-alpine3.18
+# WORKDIR /app
+# COPY /path/to/source/code .
+# RUN pip install --no-cache-dir -r requirements.txt
+# EXPOSE 8080
+# CMD ["python", "run.py", "--port 8080", "--json-logging", "--access-log"]
+#######################################
 
+# but we want to create virtual env
+# use another linux distribution
+FROM debian:bookworm-slim
 
-
-
-
-
-FROM python:3.9.18-alpine3.18
-
+# indentations for more readability
+# use double quotes for value
+# don't use "\" at the last line
 LABEL maintainer="Valera" \
       os="Debian"
 
+# first configure ARG and ENV
+# use ARG only for building docker image, ENV as environment var
+# also we can replace ARG passing --build-arg <varname>=<value> at build time
+# not nessesary use all ARGs in one layer
+# to prevent any issus better to use group id equals user id 
+# and value more then 1000
+ARG USER_ID=1001
+ARG GROUP_ID=1001
+ARG USER_NAME=docker
 ARG VENV_DIR=/venv
+# better to use path to tar archive as var
 ARG TARBALL_PATH=./object.tar.gz
+# make bin files exucutable passing them to $PATH environment var
+ENV PATH="$VENV_DIR/venv/bin:$PATH"
 
-ENV USER_ID=500
-ENV GROUP_ID=1000
-ENV USER_NAME=docker
-
+# extract tar archive 
 ADD $TARBALL_PATH $VENV_DIR
 
-RUN groupadd -r $USER_NAME -g $GROUP_ID && useradd -u $USER_ID -r -g $GROUP_ID $USER_NAME
-USER $USER_NAME
+# first create a user and a group
+RUN groupadd -r $USER_NAME -g $GROUP_ID \
+    && useradd -u $USER_ID -r -g $GROUP_ID $USER_NAME
 
-RUN apt update && apt upgrade -y
-RUN python3 -m venv $VENV_DIR && \
-chown -R $USER_ID:$GROUP_ID $VENV_DIR
-RUN apt-get clean && rm -rf / var/cache/apt/archives
+# run apt-get to update system without any dependancies
+# probably we don't need to upgrade system
+# update and install python as one layer
+# "apt-get clean" runs automatically on Debin or Ubuntu
+# run "rm -rf /var/cache/apt/archives" not required 
+# because "apt-get clean" removes archives from this dir
+RUN apt-get update && apt-get install -y python3 \
+    python3-pip \
+    python3-venv \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN apt-get update && apt-get install -y \
-
- && rm -rf /var/lib/apt/lists/*
-
-
+# move to workdir
 WORKDIR $VENV_DIR
-EXPOSE 80
 
-ENTRYPOINT ["./bin/python3", "run.py"]
-CMD ["--port 80", "--json-logging", "--access-log"]
+# then create python environment
+RUN python3 -m venv $VENV_DIR \
+    # make shure whether 'requirements.txt' is existed
+    && ./bin/pip install --no-cache-dir -r requirements.txt \
+    && chown -R $USER_ID:$GROUP_ID $VENV_DIR
+
+# change to created user
+USER $USER_NAME
+EXPOSE 8080
+
+# CMD is preffered form to run this command as a default command
+# we are able to replace this command passing anouther command
+# example: docker container run -it <image-name> bash
+CMD ["./bin/python", "run.py", "--port 8080", "--json-logging", "--access-log"]
