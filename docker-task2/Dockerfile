@@ -2,17 +2,24 @@ FROM debian:stable-slim
 
 LABEL author="Yulyan Glonti"
 
-ENV PHP_VERSION=7.4
+# ARG PHP_VERSION=8.2
 
 RUN apt-get update && apt-get install -y \
-    php${PHP_VERSION}-fpm \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN apt-get update && apt-get install -y \
+    php\
     apache2 \
-    apache2-utils \
-    && apt-get clean
+    chromium \
+    && rm -rf /var/lib/apt/lists/*
 
 EXPOSE 80
 
-CMD [“apache2ctl”, “-D”, “FOREGROUND”]
+# RUN ["/usr/sbin/apache2ctl", "-D", "FOREGROUND"]
+# RUN ["/usr/sbin/apache2ctl"]
+
+# # Add chromium user
+# RUN groupadd -r chromium && useradd -r -g chromium -G audio,video chromium \
+#     && mkdir -p /home/chromium/Downloads && chown -R chromium:chromium /home/chromium
+
+# # Run as non privileged user
+# USER chromium
+ENTRYPOINT ["/usr/bin/chromium", "--no-sandbox", "--headless", "--disable-gpu","--user-data-dir=/usr/src/app/chromium-data", "http://localhost"]
+CMD ["/usr/sbin/apache2ctl", "-D", "FOREGROUND"]
