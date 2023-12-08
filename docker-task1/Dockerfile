@@ -34,9 +34,6 @@ ARG TARBALL_PATH=./object.tar.gz
 # make bin files exucutable passing them to $PATH environment var
 ENV PATH="$VENV_DIR/venv/bin:$PATH"
 
-# extract tar archive 
-ADD $TARBALL_PATH $VENV_DIR
-
 # first create a user and a group
 RUN groupadd -r $USER_NAME -g $GROUP_ID \
     && useradd -u $USER_ID -r -g $GROUP_ID $USER_NAME
@@ -55,14 +52,20 @@ RUN apt-get update && apt-get install -y python3 \
 # move to workdir
 WORKDIR $VENV_DIR
 
+# extract tar archive 
+ADD $TARBALL_PATH . 
+
+# change ownership
+RUN chown -R $USER_ID:$GROUP_ID .
+
+# switch to created user
+USER $USER_NAME
+
 # then create python environment
 RUN python3 -m venv $VENV_DIR \
     # make sure whether 'requirements.txt' is existed
-    && ./bin/pip install --no-cache-dir -r requirements.txt \
-    && chown -R $USER_ID:$GROUP_ID $VENV_DIR
+    && ./bin/pip install --no-cache-dir -r requirements.txt
 
-# change to created user
-USER $USER_NAME
 EXPOSE 8080
 
 # CMD is preferred form to run this command as a default command
