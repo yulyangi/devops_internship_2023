@@ -39,10 +39,10 @@ RUN groupadd -r $USER_NAME -g $GROUP_ID \
     && useradd -u $USER_ID -r -g $GROUP_ID $USER_NAME
 
 # run apt-get to update system without any dependencies
-# probably we don't need to upgrade system
+# we don't need to upgrade system, official images are already upgraded
 # update and install python as one layer
 # "apt-get clean" runs automatically on Debian or Ubuntu
-# run "rm -rf /var/cache/apt/archives" not required 
+# run "rm -rf /var/cache/apt/archives" not required
 # because "apt-get clean" removes archives from this dir
 RUN apt-get update && apt-get install -y python3 \
     python3-pip \
@@ -63,12 +63,13 @@ USER $USER_NAME
 
 # then create python environment
 RUN python3 -m venv $VENV_DIR \
-    # make sure whether 'requirements.txt' is existed
+    # make sure whether 'requirements.txt' exists
     && ./bin/pip install --no-cache-dir -r requirements.txt
 
+# for testing purposes we use 8080 port
 EXPOSE 8080
 
 # CMD is preferred form to run this command as a default command
-# we are able to replace this command passing another command
+# we are able to replace this command passing by another one you want
 # example: docker container run -it <image-name> bash
 CMD ["./bin/python", "run.py", "--port 8080", "--json-logging", "--access-log"]

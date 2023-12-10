@@ -6,5 +6,5 @@ docker build --tag <my-image-name> .
 ``` 
 **Run a container:**
 ```
-docker container run -it --rm -p 8080 <my-image-name>
+docker container run -it --rm -p 8080:80 <my-image-name>
 ```
