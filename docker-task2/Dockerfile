@@ -56,4 +56,4 @@ EXPOSE 80 9222
 
 CMD ["chromium", "--no-sandbox","--headless", "--disable-gpu", \
 "--disable-software-rasterizer", "--remote-debugging-address=0.0.0.0", \
-"--remote-debugging-port=9222"] 
+"--remote-debugging-port=9222"]
