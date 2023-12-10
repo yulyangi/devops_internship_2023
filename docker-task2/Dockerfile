@@ -39,7 +39,7 @@ fi
 EOF
 
 # install dependencies
-RUN apt-get update && apt-get install -y \ 
+RUN apt-get update && apt-get install -y \
     libasound2 libatk-bridge2.0-0 libatk1.0-0 libatomic1 libatspi2.0-0 \
     libc6 libcairo2 libcups2 libdbus-1-3 libdouble-conversion3 libdrm2 \
     libevent-2.1-7 libexpat1 libflac12 libfontconfig1 libfreetype6 \
