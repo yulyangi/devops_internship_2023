@@ -29,10 +29,8 @@ PARENT_COMMIT=$(curl -s "https://github.com/chromium/chromium/commit/${COMMIT}" 
  | awk -F '/' 'NR==1 {print $5}' | awk -F '\"' '{print $1}')
 CHROMIUM_POSITION=$(curl -s "https://github.com/chromium/chromium/commit/${PARENT_COMMIT}" \
  | awk -F '@{#' '/refs\/heads\/m/ {print $2}' | awk -F '}' '{print $1}')
-wget -O chromium.zip "https://commondatastorage.googleapis.com/chromium-browser-snapshots/Linux_x64/${CHROMIUM_POSITION}/chrome-linux.zip"
-if [[ $(wc -c chromium.zip | awk '{print $1}') -eq 0 ]]; 
-    then echo "Snapshot does not exist. Try another chromium version!" && exit 2;
-fi
+wget -O chromium.zip "https://commondatastorage.googleapis.com/chromium-browser-snapshots/Linux_x64/${CHROMIUM_POSITION}/chrome-linux.zip" || \
+echo "Snapshot does not exist. Try another chromium version!" && exit 1
 unzip chromium.zip
 rm chromium.zip
 ln -s /opt/chrome-linux/chrome /usr/local/bin/chromium

@@ -26,4 +26,10 @@ If you want to run a container as a chromium execute
 ```
 docker run -it --rm -d -p 9222:9222 <your-image>
 ```
+
 You can check chromium devtools on http://localhost:9222
+
+Also you can pass any commands you need
+```
+docker run -it --rm -d -p 9222:9222 <your-image> chromium --no-sandbox --headless ...
+```
