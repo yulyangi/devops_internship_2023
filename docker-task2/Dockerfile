@@ -2,7 +2,8 @@ FROM debian:bookworm-slim
 
 LABEL maintainer="Yulyan Glonti"
 
-ARG CHROMIUM_VERSION=120.0.6099.71
+# default version
+ARG CHROMIUM_VERSION=120.0.6099.0
 
 # update system and install required tools
 RUN apt-get update && apt-get install -y \
@@ -19,11 +20,19 @@ WORKDIR /opt
 # get commit, parrent commit, position
 RUN <<EOF
 #!/usr/bin/env bash
-COMMIT=$(curl -s "https://github.com/chromium/chromium/releases/tag/${CHROMIUM_VERSION}" | awk '/\/chromium\/chromium\/commit\// {print $2}' | awk -F '/' 'NR==1 {print $5}' | awk -F '\"' '{print $1}')
-PARENT_COMMIT=$(curl -s "https://github.com/chromium/chromium/commit/${COMMIT}" | awk '/data-hotkey=\"p\" href=\"\/chromium\/chromium\/commit\// {print $4}' | awk -F '/' 'NR==1 {print $5}' | awk -F '\"' '{print $1}')
-CHROMIUM_POSITION=$(curl -s "https://github.com/chromium/chromium/commit/${PARENT_COMMIT}" | awk -F '@{#' '/-refs\/heads/ {print $2}' | awk -F '}' '{print $1}')
+set -o pipefail
+COMMIT=$(curl -s "https://github.com/chromium/chromium/releases/tag/${CHROMIUM_VERSION}" \
+ | awk '/\/chromium\/chromium\/commit\// {print $2}' | awk -F '/' 'NR==1 {print $5}' \
+ | awk -F '\"' '{print $1}')
+PARENT_COMMIT=$(curl -s "https://github.com/chromium/chromium/commit/${COMMIT}" \
+ | awk '/data-hotkey=\"p\" href=\"\/chromium\/chromium\/commit\// {print $4}' \
+ | awk -F '/' 'NR==1 {print $5}' | awk -F '\"' '{print $1}')
+CHROMIUM_POSITION=$(curl -s "https://github.com/chromium/chromium/commit/${PARENT_COMMIT}" \
+ | awk -F '@{#' '/refs\/heads\/m/ {print $2}' | awk -F '}' '{print $1}')
 wget -O chromium.zip "https://commondatastorage.googleapis.com/chromium-browser-snapshots/Linux_x64/${CHROMIUM_POSITION}/chrome-linux.zip"
-if [[ $(wc -c chromium.zip | awk '{print $1}') -eq 0 ]]; then echo "Snapshot does not exists. Try another chromium version!" && exit 2; fi
+if [[ $(wc -c chromium.zip | awk '{print $1}') -eq 0 ]]; 
+    then echo "Snapshot does not exist. Try another chromium version!" && exit 2;
+fi
 unzip chromium.zip
 rm chromium.zip
 ln -s /opt/chrome-linux/chrome /usr/local/bin/chromium
@@ -40,10 +49,11 @@ RUN apt-get update && apt-get install -y \
     libsnappy1v5 libstdc++6 libwebp7 libwebpdemux2 libwebpmux3 \
     libwoff1 libx11-6 libxcb1 libxcomposite1 libxdamage1 libxext6 \
     libxfixes3 libxkbcommon0 libxml2 libxnvctrl0 libxrandr2 libxslt1.1 \
-    libxtst6 libxss1 zlib1g \
+    libxtst6 libxss1 fonts-liberation zlib1g \
     && rm -rf /var/lib/apt/lists/*
 
 EXPOSE 80 9222
 
-# ENTRYPOINT ["chromium", "--no-sandbox","--headless", "--disable-gpu", "--disable-software-rasterizer", "--remote-debugging-address=0.0.0.0", "--remote-debugging-port=9222"] 
-# CMD ["https://www.chromium.org"]
+CMD ["chromium", "--no-sandbox","--headless", "--disable-gpu", \
+"--disable-software-rasterizer", "--remote-debugging-address=0.0.0.0", \
+"--remote-debugging-port=9222"] 
