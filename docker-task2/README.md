@@ -2,14 +2,14 @@
 To create an image with specific version of chromium move to the directory with Dockerfile and run
 
 ```
-docker build -t <image-name>:<tag(optional)> --build-arg CHROMIUM_VERSION=<chromium-version> .
+docker build -t <image-name>:<tag(optional)> --build-arg CHROMIUM_VERSION=<chromium-version> --GH_TOKEN=<your-secret> .
 ```
-If you do not specify CHROMIUM_VERSION, chromium will be installed with 120.0.6099.71 version
+If you do not specify CHROMIUM_VERSION, chromium will be installed with 120.0.6099.0 version
 
 ```
 docker build -t <image-name>:<tag(optional)>  .
 ```
-Remember! Not all version are available for installation
+Remember! Not all versions are available for installation
 
 Available snapshots for installation https://commondatastorage.googleapis.com/chromium-browser-snapshots/index.html?prefix=Linux_x64/
 
