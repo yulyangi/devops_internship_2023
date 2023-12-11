@@ -1,6 +1,8 @@
 FROM debian:bookworm-slim
 
-LABEL maintainer="Yulyan Glonti"
+LABEL architecture="amd64" \
+      OS="Debian" \
+      maintainer="Yulyan Glonti"
 
 # default version
 ARG CHROMIUM_VERSION=120.0.6099.0
