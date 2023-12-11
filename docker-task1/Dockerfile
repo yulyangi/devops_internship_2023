@@ -15,7 +15,7 @@ FROM debian:bookworm-slim
 
 # indentations for more readability
 # use double quotes for value
-# don't use "\" at the last line
+# don't use "\" at the end of last line
 LABEL maintainer="Valera" \
       os="Debian"
 
@@ -23,7 +23,7 @@ LABEL maintainer="Valera" \
 # use ARG only for building docker image, ENV as environment var
 # also we can replace ARG passing --build-arg <varname>=<value> at build time
 # not necessary use all ARGs in one layer
-# to prevent any issus better to use group id equals user id 
+# to prevent any issues better to use group id equals user id
 # and value more then 1000
 ARG USER_ID=1001
 ARG GROUP_ID=1001
@@ -52,8 +52,8 @@ RUN apt-get update && apt-get install -y python3 \
 # move to workdir
 WORKDIR $VENV_DIR
 
-# extract tar archive 
-ADD $TARBALL_PATH . 
+# extract tar archive
+ADD $TARBALL_PATH .
 
 # change ownership
 RUN chown -R $USER_ID:$GROUP_ID .
