@@ -6,10 +6,12 @@ LABEL architecture="amd64" \
 
 # default version
 ARG CHROMIUM_VERSION=120.0.6099.0
+ARG GH_TOKEN
 
 # update system and install required tools
 RUN apt-get update && apt-get install -y \
     apache2 \
+    jq \
     curl \
     unzip \
     php \
@@ -17,20 +19,27 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt
+SHELL [ "/bin/bash", "-c" ]
 
 # now we want to get position according to our version
 # get commit, parrent commit, position
 RUN <<EOF
-#!/usr/bin/env bash
 set -o pipefail
-COMMIT=$(curl -s "https://github.com/chromium/chromium/releases/tag/${CHROMIUM_VERSION}" \
- | awk '/\/chromium\/chromium\/commit\// {print $2}' | awk -F '/' 'NR==1 {print $5}' \
- | awk -F '\"' '{print $1}')
-PARENT_COMMIT=$(curl -s "https://github.com/chromium/chromium/commit/${COMMIT}" \
- | awk '/data-hotkey=\"p\" href=\"\/chromium\/chromium\/commit\// {print $4}' \
- | awk -F '/' 'NR==1 {print $5}' | awk -F '\"' '{print $1}')
-CHROMIUM_POSITION=$(curl -s "https://github.com/chromium/chromium/commit/${PARENT_COMMIT}" \
- | awk -F '@{#' '/refs\/heads\/m/ {print $2}' | awk -F '}' '{print $1}')
+COMMIT_URL=$(curl -L \
+  -H "Accept: application/vnd.github+json" \
+  -H "Authorization: Bearer $GH_TOKEN" \
+  -H "X-GitHub-Api-Version: 2022-11-28" \
+  "https://api.github.com/repos/chromium/chromium/git/refs/tags/${CHROMIUM_VERSION}" | jq -r ".object.url")
+PARENTS_URL=$(curl -L \
+  -H "Accept: application/vnd.github+json" \
+  -H "Authorization: Bearer $GH_TOKEN" \
+  -H "X-GitHub-Api-Version: 2022-11-28" \
+  "${COMMIT_URL}" | jq -r ".parents[0].url")
+CHROMIUM_POSITION=$(curl -L \
+  -H "Accept: application/vnd.github+json" \
+  -H "Authorization: Bearer $GH_TOKEN" \
+  -H "X-GitHub-Api-Version: 2022-11-28" \
+  "${PARENTS_URL}" | jq -r ".message" | awk -F '@{#' '/refs\/heads\/m/ {print $2}' | awk -F '}' '{print $1}')
 if wget -O chromium.zip "https://commondatastorage.googleapis.com/chromium-browser-snapshots/Linux_x64/${CHROMIUM_POSITION}/chrome-linux.zip"; then
     unzip chromium.zip
     rm chromium.zip
