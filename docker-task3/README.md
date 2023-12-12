@@ -2,6 +2,12 @@ To run containers: ```docker compose up -d```
 
 To destroy containers: ```docker compose down```
 
+Get proxy ip address:
+
+```
+docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' proxy
+```
+
 App endpoints:
 
 ```
@@ -26,8 +32,6 @@ To delete an item:
 
 ```curl -X DELETE -H http://proxy-ip-address/items/<item_id>```
 
-Remember, due to port forwarding 8080:80 you can reach proxy on ```http://localhost:8080```
+To check redis, db, proxy, fluentd logs run ```journalctl CONTAINER_NAME=<container_name>```
 
-To check logs run ```journalctl CONTAINER_NAME=<container_name>```
-
-To check application logs move to ```/fluentd/log/``` directory of fluentd container
+To check app logs run ```docker exec -it fluentd tail -f /fluentd/log/data.log```

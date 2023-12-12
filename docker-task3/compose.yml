@@ -11,8 +11,8 @@ services:
         reservations:
           cpus: '0.25'
           memory: 20M
-    ports:
-      - 6379:6379
+    expose:
+      - 6379
     logging:
       driver: journald
     restart: unless-stopped
@@ -20,7 +20,7 @@ services:
       - backend
     healthcheck:
       test: redis-cli ping
-      interval: 3s
+      interval: 30s
       timeout: 3s
       retries: 10
       start_period: 20s
@@ -36,8 +36,8 @@ services:
         reservations:
           cpus: '0.25'
           memory: 256M
-    ports:
-      - 27017:27017
+    expose:
+      - 27017
     logging:
       driver: journald
     restart: unless-stopped
@@ -45,7 +45,7 @@ services:
       - backend
     healthcheck:
       test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
-      interval: 3s
+      interval: 30s
       timeout: 10s
       retries: 10
       start_period: 20s
@@ -62,14 +62,14 @@ services:
           cpus: '0.125'
           memory: 128M
     ports:
-      - 24224:24224
-      - 24224:24224/udp
+      - 127.0.0.1:24224:24224
+      - 127.0.0.1:24224:24224/udp
     restart: unless-stopped
     networks:
       - backend
     healthcheck:
       test: "[[ $( pgrep ruby | wc -l)  == 2 ]] || exit 1"
-      interval: 3s
+      interval: 30s
       timeout: 3s
       retries: 10
       start_period: 20s
@@ -88,8 +88,8 @@ services:
         reservations:
           cpus: '0.25'
           memory: 256M
-    ports:
-      - 5000:5000
+    expose:
+      - 5000
     restart: unless-stopped
     volumes:
       - ./src:/src
@@ -103,17 +103,17 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: localhost:24224
+        fluentd-address: 127.0.0.1:24224
         tag: task3
     depends_on:
       - db
       - redis
       - fluentd
     healthcheck:
-      test: curl --fail http://localhost:5000/ || exit 1
-      interval: 3s
+      test: curl --fail http://127.0.0.1:5000/ || exit 1
+      interval: 30s
       timeout: 10s
-      retries: 10
+      retries: 5
       start_period: 20s
 
   proxy:
@@ -128,8 +128,8 @@ services:
           cpus: '0.25'
           memory: 256M
     restart: unless-stopped
-    ports:
-      - 8080:80
+    expose:
+      - 80
     logging:
       driver: journald
     volumes:
@@ -140,7 +140,7 @@ services:
       - app
     healthcheck:
       test: nginx -t || exit 1
-      interval: 3s
+      interval: 30s
       timeout: 10s
       retries: 10
       start_period: 20s
