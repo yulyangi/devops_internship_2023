@@ -1,0 +1,150 @@
+version: '3.9'
+services:
+  redis:
+    image: redis:7.2.3-alpine
+    container_name: redis
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 50M
+        reservations:
+          cpus: '0.25'
+          memory: 20M
+    ports:
+      - 6379:6379
+    logging:
+      driver: journald
+    restart: unless-stopped
+    networks:
+      - backend
+    healthcheck:
+      test: redis-cli ping
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 20s
+
+  db:
+    image: mongo:7.0
+    container_name: db
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    ports:
+      - 27017:27017
+    logging:
+      driver: journald
+    restart: unless-stopped
+    networks:
+      - backend
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 3s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  fluentd:
+    image: fluentd:v1.16-1
+    container_name: fluentd
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+        reservations:
+          cpus: '0.125'
+          memory: 128M
+    ports:
+      - 24224:24224
+      - 24224:24224/udp
+    restart: unless-stopped
+    networks:
+      - backend
+    healthcheck:
+      test: "[[ $( pgrep ruby | wc -l)  == 2 ]] || exit 1"
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 20s
+
+  app:
+    image: task3
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: app
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    ports:
+      - 5000:5000
+    restart: unless-stopped
+    volumes:
+      - ./src:/src
+    networks:
+      - frontend
+      - backend
+    environment:
+      - MONGODB_ENDPOINT=mongodb://db:27017/example
+      - REDIS_ENDPOINT=redis://redis:6379/0
+      - FLASK_DEBUG=1
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: task3
+    depends_on:
+      - db
+      - redis
+      - fluentd
+    healthcheck:
+      test: curl --fail http://localhost:5000/ || exit 1
+      interval: 3s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  proxy:
+    image: nginx:1.25.3-alpine
+    container_name: proxy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    restart: unless-stopped
+    ports:
+      - 8080:80
+    logging:
+      driver: journald
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    networks:
+      - frontend
+    depends_on:
+      - app
+    healthcheck:
+      test: nginx -t || exit 1
+      interval: 3s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+networks:
+  frontend:
+  backend:
