@@ -52,7 +52,7 @@ RUN apt-get update && apt-get install -y \
     libsnappy1v5 libstdc++6 libwebp7 libwebpdemux2 libwebpmux3 \
     libwoff1 libx11-6 libxcb1 libxcomposite1 libxdamage1 libxext6 \
     libxfixes3 libxkbcommon0 libxml2 libxnvctrl0 libxrandr2 libxslt1.1 \
-    libxtst6 libxss1 fonts-liberation libxshmfence1 libglu1 zlib1g \
+    libxtst6 libxss1 libxshmfence1 libglu1 fonts-liberation zlib1g \
     && rm -rf /var/lib/apt/lists/*
 
 EXPOSE 80 9222
