@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /opt
 
-SHELL [ "/bin/bash", "-c" ]
+SHELL ["/bin/bash", "-c"]
 
 # now we want to get position according to our version
 # get commit, parrent commit, position
