@@ -12,7 +12,7 @@ services:
   app:
     # image: registry/image ## before running in prod you need create an image and push it to registry
     # for testing purposes
-    image: task3 # docker build -t task3 .
+    image: app-prod # docker build -t app-prod .
     restart: always
     environment:
       - FLASK_DEBUG=0
@@ -21,5 +21,5 @@ services:
     # we don't need volume mounts, use an image
     # image: registry/image ## before running in prod you need create an image and push it to registry
     # for testing purposes
-    image: proxyprod # docker build -t proxyprod -f DockerfileProxy .
+    image: proxy-prod # docker build -t proxy-prod -f DockerfileProxy .
     restart: always

@@ -1,5 +1,7 @@
 To run containers: ```docker compose up -d```
 
+That means runs ```compose.yml``` and ```compose.override.yml```
+
 To destroy containers: ```docker compose down```
 
 Get proxy ip address:
@@ -50,3 +52,5 @@ And push them:
 Run in prod:
 
 ```docker compose -f compose.yml -f production.yml up -d```
+
+That means runs ```compose.yml``` and ```production.yml```
