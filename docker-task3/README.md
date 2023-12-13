@@ -35,3 +35,18 @@ To delete an item:
 To check redis, db, proxy, fluentd logs run ```journalctl CONTAINER_NAME=<container_name>```
 
 To check app logs run ```docker exec -it fluentd tail -f /fluentd/log/data.log```
+
+For production run:
+First create an images for app and proxy:
+
+```docker build -t registry.example.com/group/project/image .```
+
+```docker build -t registry.example.com/group/project/image -f DockerfileProxy .```
+
+And push them:
+
+```docker push registry.example.com/group/project/image```
+
+Run in prod:
+
+```docker compose -f compose.yml -f production.yml up -d```
