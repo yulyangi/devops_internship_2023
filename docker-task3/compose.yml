@@ -64,6 +64,8 @@ services:
     ports:
       - 127.0.0.1:24224:24224
       - 127.0.0.1:24224:24224/udp
+    logging:
+      driver: journald
     restart: unless-stopped
     networks:
       - backend
