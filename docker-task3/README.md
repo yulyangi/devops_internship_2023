@@ -1,6 +1,6 @@
 To run containers: ```docker compose up -d```
 
-That means runs ```compose.yml``` and ```compose.override.yml```
+That means ```compose.yml``` and ```compose.override.yml``` run
 
 To destroy containers: ```docker compose down```
 
@@ -53,4 +53,4 @@ Run in prod:
 
 ```docker compose -f compose.yml -f production.yml up -d```
 
-That means runs ```compose.yml``` and ```production.yml```
+That means ```compose.yml``` and ```production.yml``` run
