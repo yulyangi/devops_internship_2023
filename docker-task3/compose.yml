@@ -67,7 +67,7 @@ services:
     networks:
       - backend
     healthcheck:
-      test: "[[ $( pgrep ruby | wc -l)  == 2 ]] || exit 1"
+      test: "[[ $$(pgrep ruby | wc -l)  == 2 ]] || exit 1"
       interval: 30s
       timeout: 3s
       retries: 10
