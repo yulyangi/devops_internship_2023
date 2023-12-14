@@ -6,16 +6,15 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.50'
-          memory: 50M
+          cpus: ${REDIS_CPU_LIM}
+          memory: ${REDIS_MEM_LIM}
         reservations:
-          cpus: '0.25'
-          memory: 20M
+          cpus: ${REDIS_CPU_RES}
+          memory: ${REDIS_MEM_RES}
     expose:
       - 6379
     logging:
       driver: journald
-    restart: unless-stopped
     networks:
       - backend
     healthcheck:
@@ -31,16 +30,15 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.50'
-          memory: 512M
+          cpus: ${DB_CPU_LIM}
+          memory: ${DB_MEM_LIM}
         reservations:
-          cpus: '0.25'
-          memory: 256M
+          cpus: ${DB_CPU_RES}
+          memory: ${DB_MEM_RES}
     expose:
       - 27017
     logging:
       driver: journald
-    restart: unless-stopped
     networks:
       - backend
     healthcheck:
@@ -56,17 +54,16 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.25'
-          memory: 256M
+          cpus: ${FLUENTD_CPU_LIM}
+          memory: ${FLUENTD_MEM_LIM}
         reservations:
-          cpus: '0.125'
-          memory: 128M
+          cpus: ${FLUENTD_CPU_RES}
+          memory: ${FLUENTD_MEM_RES}
     ports:
       - 127.0.0.1:24224:24224
       - 127.0.0.1:24224:24224/udp
     logging:
       driver: journald
-    restart: unless-stopped
     networks:
       - backend
     healthcheck:
@@ -81,14 +78,13 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
-          memory: 512M
+          cpus: ${APP_CPU_LIM}
+          memory: ${APP_MEM_LIM}
         reservations:
-          cpus: '0.25'
-          memory: 256M
+          cpus: ${APP_CPU_RES}
+          memory: ${APP_MEM_RES}
     expose:
       - 5000
-    restart: unless-stopped
     networks:
       - frontend
       - backend
@@ -118,12 +114,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
-          memory: 512M
+          cpus: ${PROXY_CPU_LIM}
+          memory: ${PROXY_MEM_LIM}
         reservations:
-          cpus: '0.25'
-          memory: 256M
-    restart: unless-stopped
+          cpus: ${PROXY_CPU_RES}
+          memory: ${PROXY_MEM_RES}
     expose:
       - 80
     logging:
@@ -133,7 +128,7 @@ services:
     depends_on:
       - app
     healthcheck:
-      test: nginx -t || exit 1
+      test: wget -O /dev/null localhost || exit 1
       interval: 30s
       timeout: 10s
       retries: 10

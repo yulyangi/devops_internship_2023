@@ -39,6 +39,7 @@ To check redis, db, proxy, fluentd logs run ```journalctl CONTAINER_NAME=<contai
 To check app logs run ```docker exec -it fluentd tail -f /fluentd/log/data.log```
 
 For production run:
+
 First create an images for app and proxy:
 
 ```docker build -t registry.example.com/group/project/image .```
@@ -54,3 +55,7 @@ Run in prod:
 ```docker compose -f compose.yml -f production.yml up -d```
 
 That means ```compose.yml``` and ```production.yml``` run
+
+Destroy in prod:
+
+```docker compose -f compose.yml -f production.yml down```
