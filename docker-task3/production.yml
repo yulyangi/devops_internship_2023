@@ -1,0 +1,27 @@
+version: '3.8'
+services:
+  redis:
+    restart: always
+
+  db:
+    restart: always
+
+  fluentd:
+    restart: always
+
+  app:
+    ## before running in prod you need create an image and push it to registry
+    # image: registry/image
+    ## for testing purposes
+    image: app-prod # docker build -t app-prod .
+    restart: always
+    environment:
+      - FLASK_DEBUG=0
+
+  proxy:
+    ## before running in prod you need create an image and push it to registry
+    # image: registry/image
+    ## we don't need volume mounts, use an image
+    ## for testing purposes
+    image: proxy-prod # docker build -t proxy-prod -f proxy/Dockerfile .
+    restart: always

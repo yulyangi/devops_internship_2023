@@ -1,0 +1,139 @@
+version: '3.8'
+services:
+  redis:
+    image: redis:7.2.3-alpine
+    container_name: redis
+    deploy:
+      resources:
+        limits:
+          cpus: ${REDIS_CPU_LIM}
+          memory: ${REDIS_MEM_LIM}
+        reservations:
+          cpus: ${REDIS_CPU_RES}
+          memory: ${REDIS_MEM_RES}
+    expose:
+      - 6379
+    logging:
+      driver: journald
+    networks:
+      - backend
+    healthcheck:
+      test: redis-cli ping
+      interval: 30s
+      timeout: 3s
+      retries: 10
+      start_period: 20s
+
+  db:
+    image: mongo:7.0
+    container_name: db
+    deploy:
+      resources:
+        limits:
+          cpus: ${DB_CPU_LIM}
+          memory: ${DB_MEM_LIM}
+        reservations:
+          cpus: ${DB_CPU_RES}
+          memory: ${DB_MEM_RES}
+    expose:
+      - 27017
+    logging:
+      driver: journald
+    networks:
+      - backend
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  fluentd:
+    image: fluentd:v1.16-1
+    container_name: fluentd
+    deploy:
+      resources:
+        limits:
+          cpus: ${FLUENTD_CPU_LIM}
+          memory: ${FLUENTD_MEM_LIM}
+        reservations:
+          cpus: ${FLUENTD_CPU_RES}
+          memory: ${FLUENTD_MEM_RES}
+    ports:
+      - 127.0.0.1:24224:24224
+      - 127.0.0.1:24224:24224/udp
+    logging:
+      driver: journald
+    networks:
+      - backend
+    healthcheck:
+      test: "[[ $$(pgrep ruby | wc -l)  == 2 ]] || exit 1"
+      interval: 30s
+      timeout: 3s
+      retries: 10
+      start_period: 20s
+
+  app:
+    container_name: app
+    deploy:
+      resources:
+        limits:
+          cpus: ${APP_CPU_LIM}
+          memory: ${APP_MEM_LIM}
+        reservations:
+          cpus: ${APP_CPU_RES}
+          memory: ${APP_MEM_RES}
+    expose:
+      - 5000
+    networks:
+      - frontend
+      - backend
+    environment:
+      - MONGODB_ENDPOINT=mongodb://db:27017/example
+      - REDIS_ENDPOINT=redis://redis:6379/0
+      - FLASK_DEBUG=1
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: 127.0.0.1:24224
+        tag: task3
+    depends_on:
+      - db
+      - redis
+      - fluentd
+    healthcheck:
+      test: curl --fail http://127.0.0.1:5000/ || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  proxy:
+    image: nginx:1.25.3-alpine
+    container_name: proxy
+    deploy:
+      resources:
+        limits:
+          cpus: ${PROXY_CPU_LIM}
+          memory: ${PROXY_MEM_LIM}
+        reservations:
+          cpus: ${PROXY_CPU_RES}
+          memory: ${PROXY_MEM_RES}
+    expose:
+      - 80
+    logging:
+      driver: journald
+    networks:
+      - frontend
+    depends_on:
+      - app
+    healthcheck:
+      test: wget -O /dev/null localhost || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+networks:
+  frontend:
+  backend:
